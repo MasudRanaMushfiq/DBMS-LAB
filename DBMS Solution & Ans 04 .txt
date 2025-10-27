@@ -1,0 +1,201 @@
+
+Example  04:  Comprehensive  Employee  and  Company  Database 
+
+Schema  Recap:
+1.	employee(employee-name,  street,  city)
+2.	works(employee-name,  company-name,  salary)
+3.	company(company-name,  city)
+4.	manages(employee-name,  manager-name)
+
+
+a.  Insert  the  data:
+ 
+b.  Find  the  names  of  all  employees  who  work  for  Sonali  Bank:
+
+SELECT  employee_name  
+FROM  works  
+WHERE  company_name  =  'Sonali';
+
+Result:  
+Abdul,  Amirul,  Sagor
+
+c.  Find  the  names,  streets,  and  cities  of  all  employees  who  work  for  Agrani  Bank:
+
+SELECT e.employee_name, e.street, e.city
+FROM employee e JOIN works w ON e.employee_name = w.employee_name
+WHERE w.company_name = 'Agrani';
+
+Result:
+Sumon  (52  east,  Moynamati)
+Himesh  (Nazrul  avenue,  Dhaka)
+
+d.  Find  the  names,  streets,  and  cities  of  all  employees  who  work  for  Sonali  Bank  and  earn  more  than  120000  per  annum  (i.e.,  >10000  per  month):
+
+SELECT  employee.employee_name,  employee.street,  employee.city  
+FROM  employee  
+JOIN  works  ON  employee.employee_name  =  works.employee_name  
+WHERE  works.company_name  =  'Sonali'  AND  works.salary  >  10000;
+
+Alternate:  
+SELECT e.employee_name, e.street, e.city
+FROM employee e
+JOIN works w  
+ON w.employee_name = e.employee_name
+WHERE company_name = 'Sonali' and salary >= 10000;
+
+Result:
+Abdul  (Binodpur,  Rajshahi)
+Amirul  (Chawk  bazar,  Sylhet)
+
+e.  Find  all  employees  who  live  in  the  same  cities  as  the  companies  for  which  they  work: ()
+
+SELECT e.employee_name  
+FROM employee e
+JOIN works w ON e.employee_name = w.employee_name  
+JOIN company c ON w.company_name = c.company_name  
+WHERE e.city = c.city;
+
+Alternative:
+SELECT employee.employee_name
+FROM employee
+NATURAL JOIN works
+NATURAL JOIN company
+WHERE employee.city = company.city;
+
+Result:  Amirul 
+
+f.  Find  all  employees  who  live  in  the  same  cities  and  on  the  same  streets  as  do  their  managers:
+
+SELECT e.employee_name
+FROM employee e
+JOIN manages m ON e.employee_name=m.employee_name
+JOIN employee e2 ON e2.employee_name=m.manager_name
+WHERE e.street=e2.street AND e.city=e2.city
+
+Result:
+Amirul Chawk bazar Sylhet
+Arif	51 upashahar	Rajshahi
+Sumon 52 east Moynamati
+
+g.  Find  all  employees  in  the  database  who  do  not  work  for  Sonali  Bank:
+
+SELECT employee_name
+FROM works
+WHERE company_name !='Sonali';
+
+Result: 
+Sumon,  Himesh,  Arif,  Sajib
+
+h.  Find  all  employees  who  earn  more  than  each  employee  of  Janata  Bank:
+
+SELECT w.employee_name
+FROM works w
+WHERE w.salary>
+	(SELECT MAX(w.salary)
+	FROM works w
+	WHERE w.company_name='Janata');
+
+Result:  Amirul
+
+i.  Find  all  employees  who  earn  more  than  the  average  salary  of  all  employees  of  their  company:
+
+SELECT employee_name
+FROM works w
+WHERE w.salary >(SELECT AVG(w2.salary)FROM works w2
+	 WHERE w2.company_name = w.company_name
+	);
+
+Result:  Amirul  (Sonali),  Arif  (Janata), Sumon
+
+j.  Find  the  company  that  has  the  most  employees:
+
+SELECT company_name
+FROM works
+GROUP BY company_name
+ORDER BY COUNT(employee_name) DESC
+LIMIT 1;;
+
+Result:  Sonali
+
+k.  Find  the  company  that  has  the  smallest  payroll:
+
+SELECT company_name
+FROM works
+GROUP BY company_name
+ORDER BY SUM(salary) ASC
+LIMIT  1;
+
+Result:  Agrani
+
+l.  Find  those  companies  whose  employees  earn  a  higher  salary  on  average  than  the  average  salary  at  Agrani  Bank:
+
+SELECT company_name
+FROM works
+GROUP BY company_name
+HAVING AVG(salary) > (
+	SELECT AVG(salary) 
+    FROM works 
+    WHERE company_name = 'Agrani');
+
+Result:  Sonali,  Janata
+
+m.  Modify  the  database  so  that  “Arif”  now  lives  in  Natore:
+
+
+UPDATE employee SET city = 'Natore' 
+	WHERE employee_name = 'Arif';
+
+n.  Give  all  employees  of  Agrani  Bank  a  10%  salary  raise:
+
+UPDATE works
+SET salary = salary * 1.10
+WHERE company_name = 'Agrani';
+
+o.  Give  all  managers  of  Agrani  Bank  a  10%  salary  raise:
+
+UPDATE works
+SET salary=salary*1.1
+WHERE employee_name IN(
+ SELECT manager_name
+ FROM (
+    SELECT DISTINCT manager_name
+    FROM manages
+    NATURAL JOIN works
+    WHERE company_name='Agrani')
+    	AS temp_table
+ );
+
+p.  Give  all  managers  a  10%  salary  raise  unless  their  salary  becomes  greater  than  19000;  in  such  cases  give  only  a  3%  salary  raise:
+
+
+UPDATE works  
+SET salary = CASE  
+        WHEN salary * 1.10 > 19000 THEN salary * 1.03  
+        ELSE salary * 1.10  
+END
+WHERE employee_name IN 
+(SELECT manager_name FROM manages);
+
+q.  Delete  all  tuples  in  the  works  relation  for  employees  of  Janata  Bank:
+
+DELETE  
+FROM works  
+WHERE company_name = 'Janata';
+
+18.  Define  a  view  consisting  of  manager_name  and  the  average  salary  of  all  employees  who  work  for  that  manager.  Now,  try  to  modify  that  view:
+
+--  Create  the  view
+
+CREATE VIEW manager_avg_salary AS 
+SELECT manages.manager_name, AVG(works.salary) AS avg_salary 
+FROM manages 
+JOIN works ON manages.employee_name = works.employee_name 
+GROUP BY manages.manager_name;
+
+--  Attempt  to  modify  the  view  (which  will  generally  not  be  allowed  in  most    systems)
+UPDATE  manager_avg_salary  SET  avg_salary  =  15000  WHERE  manager_name  =  'Sumon';
+
+
+
+
+
